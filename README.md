@@ -209,3 +209,66 @@ round-trip min/avg/max = 0.084/0.216/0.299 ms
 ```
 
 > So, the catch here is: containers can't really, or shouldn't really, rely on IP addresses for talking to each other because they just can't be relied on. And that DNS is really the standard here for how we do intercommunication between containers on the same host and across hosts.
+
+### DNS Round Robin
+DNS round robin ([wikipedia](./https://en.wikipedia.org/wiki/Round-robin_DNS)) is the concept that you can have two different hosts with DNS aliases that respond to the same DNS name. When you think about something like google[.]com obviously they've got more than one server. So, one of the techniques that big companies use to always make sure they're up 24/7 is to employ DNS round robin as part of their strategy so that there's actually multiple IP addresses in DNS records behind the name you're using on the Internet.
+
+In Docker, we have a feature where if we create a custom network, we can actually assign an alias so that multiple containers can respond to the same DNS name.
+
+Create a network (rrdns for ex):
+```sh
+[be@fedora Desktop]$ docker network create rrdns
+f43c810dfb4b9690349b4cb90647d56a4621a6d461c0aa9694b3ca5cda642cf7
+```
+
+Spwan two containers connected to the network 'rrdns' with network alias 'search':
+```sh
+[be@fedora Desktop]$ docker container run -d --net rrdns --net-alias search redis:alpine
+31832ddbdf03b91f8556456d8d02cc30566620fa956472b050a2a1b1abe3dce0
+[be@fedora Desktop]$ docker container run -d --net rrdns --net-alias search redis:alpine
+71007c23295c657cf8bc96d9fa6cfe41264dea31de8be72a818bcf2d210cc08b
+```
+
+Now, try nsloopup on the the hostname 'search':
+
+```
+[be@fedora Desktop]$ docker container run --net rrdns alpine nslookup search
+Server:         127.0.0.11
+Address:        127.0.0.11:53
+
+Non-authoritative answer:
+*** Can't find search: No answer
+
+Non-authoritative answer:
+Name:   search
+Address: 172.26.0.3 👈
+Name:   search
+Address: 172.26.0.2 👈
+```
+See that we get two hosts with same name. ✌️
+
+Inspecting the network:
+
+```
+[be@fedora Desktop]$ docker network inspect rrdns
+[
+    {
+        "Name": "rrdns",
+        ...
+        "Containers": {
+            "31832ddbdf03b91f8556456d8d02cc30566620fa956472b050a2a1b1abe3dce0": {
+                ...
+                "IPv4Address": "172.26.0.2/16", 👈
+                "IPv6Address": ""
+            },
+            "71007c23295c657cf8bc96d9fa6cfe41264dea31de8be72a818bcf2d210cc08b": {
+                ...
+                "IPv4Address": "172.26.0.3/16", 👈
+                "IPv6Address": ""
+            }
+        },
+        ...
+    }
+]
+[be@fedora Desktop]$ 
+```
