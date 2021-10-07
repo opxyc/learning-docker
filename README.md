@@ -22,7 +22,7 @@ https://www.youtube.com/watch?v=sK5i-N34im8&list=PLBmVKD7o3L8v7Kl_XXh3KaJl9Qw2ly
 ## Container is just a process
 ```sh
 # listing the processes in the container
-[be@fedora ~]$ docker container top nginx
+[be@fedora]$ docker container top nginx
 UID        PID         PPID       C     STIME     TTY    TIME       CMD
 root       64714       64693      0     18:11     ?      00:00:00   nginx: master process nginx -g daemon off;
 101        64767       64714      0     18:11     ?      00:00:00   nginx: worker process
@@ -31,7 +31,7 @@ root       64714       64693      0     18:11     ?      00:00:00   nginx: maste
 101        64770       64714      0     18:11     ?      00:00:00   nginx: worker process
 
 # listing the processes in the host
-[be@fedora ~]$ ps -ef | grep nginx
+[be@fedora]$ ps -ef | grep nginx
 root       64714   64693          0     18:11     ?      00:00:00   nginx: master process nginx -g daemon off;
 101        64767   64714          0     18:11     ?      00:00:00   nginx: worker process
 101        64768   64714          0     18:11     ?      00:00:00   nginx: worker process
@@ -40,10 +40,10 @@ root       64714   64693          0     18:11     ?      00:00:00   nginx: maste
 be         64813   63497          0     18:12     pts/1  00:00:00   grep --color=auto nginx
 
 # stop the container
-[be@fedora ~]$ docker container stop nginx
+[be@fedora]$ docker container stop nginx
 
 # check again
-[be@fedora ~]$ ps -ef | grep nginx
+[be@fedora]$ ps -ef | grep nginx
 be         65123   63497          0     18:18     pts/1  00:00:00   grep --color=auto nginx
 ```
 
@@ -99,7 +99,7 @@ We can't have two containers listening on the port 80 at the host level. Only on
 #### Show networks
 `docker network ls`
 ```sh
-[be@fedora ~]$ docker network ls
+[be@fedora]$ docker network ls
 NETWORK ID     NAME      DRIVER    SCOPE
 bb5def3f463d   bridge    bridge    local
 bd329c0586ea   host      host      local
@@ -118,9 +118,9 @@ bd329c0586ea   host      host      local
 #### Create a network
 `docker network create --driver` - this spawns a new virtual network for us to attach containers to.
 ```sh
-[be@fedora ~]$ docker network create my_app_net
+[be@fedora]$ docker network create my_app_net
 c9e21eab7cc13bbc335ec9b73505569ffea5a8a6e76a86a54c72701ebb484ba6
-[be@fedora ~]$ docker network ls
+[be@fedora]$ docker network ls
 NETWORK ID     NAME         DRIVER    SCOPE
 bb5def3f463d   bridge       bridge    local
 bd329c0586ea   host         host      local
@@ -131,9 +131,9 @@ We can specify more advanced options with the create command. Check out `docker 
 
 While creating a new container, we can specify the network using the --network flag.
 ```
-[be@fedora ~]$ docker run --name nginx -d --network my_app_net nginx:alpine
+[be@fedora]$ docker run --name nginx -d --network my_app_net nginx:alpine
 388af12d076a3586bc12845eb02df0cd649c3844bbd78a1810080fb595636f8a
-[be@fedora ~]$ docker network inspect my_app_net | grep "Containers" -A 7
+[be@fedora]$ docker network inspect my_app_net | grep "Containers" -A 7
         "Containers": {
             "388af12d076a3586bc12845eb02df0cd649c3844bbd78a1810080fb595636f8a": {
                 "Name": "nginx",
@@ -142,16 +142,16 @@ While creating a new container, we can specify the network using the --network f
                 "IPv4Address": "172.25.0.2/16",
                 "IPv6Address": ""
             }
-[be@fedora ~]$ 
+[be@fedora]$ 
 ```
 
 #### Add a container to a network
 `docker network connect <network> <container>`
 ```
-[be@fedora ~]$ docker run -d --name redis redis:alpine
+[be@fedora]$ docker run -d --name redis redis:alpine
 e6c896a1755e9ec4e620418f5b3b4f70505fe9e6953dc425eb6e465303211f38
-[be@fedora ~]$ docker network connect my_app_net redis
-[be@fedora ~]$ docker network inspect my_app_net | grep "Containers" -A 14
+[be@fedora]$ docker network connect my_app_net redis
+[be@fedora]$ docker network inspect my_app_net | grep "Containers" -A 14
         "Containers": {
             "388af12d076a3586bc12845eb02df0cd649c3844bbd78a1810080fb595636f8a": {
                 "Name": "nginx",
@@ -165,7 +165,7 @@ e6c896a1755e9ec4e620418f5b3b4f70505fe9e6953dc425eb6e465303211f38
                 "IPv4Address": "172.25.0.3/16",
                 "IPv6Address": ""
             }
-[be@fedora ~]$ 
+[be@fedora]$ 
 ```
 
 
@@ -181,14 +181,14 @@ It's a bad idea to use staic ip addresses for internal communications; instead u
 Docker defaults the hostname to the container's name, but we can also get aliases.
 
 ```sh
-[be@fedora Desktop]$ docker container run --network my_app_net -d --name nginx1 nginx:alpine]
-[be@fedora Desktop]$ docker container run --network my_app_net -d --name nginx2 nginx:alpine]
+[be@fedora]$ docker container run --network my_app_net -d --name nginx1 nginx:alpine]
+[be@fedora]$ docker container run --network my_app_net -d --name nginx2 nginx:alpine]
 
 # now if we inspect the network 'my_app_net', it will have to containers
 # and as we mentioned, they will be automatically DNS resolved.
 
 # ping the nginx2 from nginx1
-[be@fedora Desktop]$ docker container exec -it nginx1 ping nginx2
+[be@fedora]$ docker container exec -it nginx1 ping nginx2
 PING nginx2 (172.25.0.3): 56 data bytes
 64 bytes from 172.25.0.3: seq=0 ttl=64 time=0.110 ms
 64 bytes from 172.25.0.3: seq=1 ttl=64 time=0.264 ms
@@ -197,7 +197,7 @@ PING nginx2 (172.25.0.3): 56 data bytes
 2 packets transmitted, 2 packets received, 0% packet loss
 round-trip min/avg/max = 0.110/0.187/0.264 ms
 # ping the nginx1 from nginx2
-[be@fedora Desktop]$ docker container exec -it nginx2 ping nginx1
+[be@fedora]$ docker container exec -it nginx2 ping nginx1
 PING nginx1 (172.25.0.2): 56 data bytes
 64 bytes from 172.25.0.2: seq=0 ttl=64 time=0.084 ms
 64 bytes from 172.25.0.2: seq=1 ttl=64 time=0.265 ms
@@ -217,22 +217,22 @@ In Docker, we have a feature where if we create a custom network, we can actuall
 
 Create a network (rrdns for ex):
 ```sh
-[be@fedora Desktop]$ docker network create rrdns
+[be@fedora]$ docker network create rrdns
 f43c810dfb4b9690349b4cb90647d56a4621a6d461c0aa9694b3ca5cda642cf7
 ```
 
 Spwan two containers connected to the network 'rrdns' with network alias 'search':
 ```sh
-[be@fedora Desktop]$ docker container run -d --net rrdns --net-alias search redis:alpine
+[be@fedora]$ docker container run -d --net rrdns --net-alias search redis:alpine
 31832ddbdf03b91f8556456d8d02cc30566620fa956472b050a2a1b1abe3dce0
-[be@fedora Desktop]$ docker container run -d --net rrdns --net-alias search redis:alpine
+[be@fedora]$ docker container run -d --net rrdns --net-alias search redis:alpine
 71007c23295c657cf8bc96d9fa6cfe41264dea31de8be72a818bcf2d210cc08b
 ```
 
 Now, try nsloopup on the the hostname 'search':
 
 ```
-[be@fedora Desktop]$ docker container run --net rrdns alpine nslookup search
+[be@fedora]$ docker container run --net rrdns alpine nslookup search
 Server:         127.0.0.11
 Address:        127.0.0.11:53
 
@@ -250,7 +250,7 @@ See that we get two hosts with same name. ✌️
 Inspecting the network:
 
 ```
-[be@fedora Desktop]$ docker network inspect rrdns
+[be@fedora]$ docker network inspect rrdns
 [
     {
         "Name": "rrdns",
@@ -270,5 +270,109 @@ Inspecting the network:
         ...
     }
 ]
-[be@fedora Desktop]$ 
+[be@fedora]$ 
 ```
+
+# Images
+A must read on how Docker handles images and what happens when a container is started - https://docs.docker.com/storage/storagedriver/
+
+-- dockerfile
+-- builing it
+
+# Persisting Data
+## Volumes
+As an example, let's see how mysql image handles it's data:
+Current volumes (as we can see is empty):
+```sh
+[be@fedora]$ docker volume ls
+DRIVER    VOLUME NAME 
+```
+Start mysql container and list the volumes created by Docker:
+```
+[be@fedora]$ docker container run -d --name mysql -e MYSQL_ALLOW_EMPTY_PASWORD+True mysql
+2445aaefc34d5386568b2f315e6b942468ef88d4b206ebdf798e8448fbe66004
+[be@fedora]$ docker volume ls
+DRIVER    VOLUME NAME
+local     b7aac1f90c38dceed3b61a2efdea8a4dc30a4c979eb6dd4068aa0827924ea044 👈
+```
+Let's inspect the running container and see more details:
+```sh
+[be@fedora]$ docker container inspect mysql
+[
+    {
+        "Id": "2445aaefc34d5386568b2f315e6b942468ef88d4b206ebdf798e8448fbe66004",
+        ...
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "b7aac1f90c38dceed3b61a2efdea8a4dc30a4c979eb6dd4068aa0827924ea044", 
+                # on the host machine, inside this location, docker is storing the files for the 'mysql' container
+                "Source": "/var/lib/docker/volumes/b7aac1f90c38dceed3b61a2efdea8a4dc30a4c979eb6dd4068aa0827924ea044/_data", 👈
+                # and is mapped to '/var/lib/mysql' directory inside the container
+                "Destination": "/var/lib/mysql",
+                ...
+            }
+        ],
+    }
+]
+```
+
+#### The problem
+1. Whenever we create a new container (what requires a volume - specifies in it's Dockerfile), it will create a fresh new volume.
+
+    If the container we are running is a database, for example, when ever we start a container, it will therefore be a fresh instance which doesn't have any data that was stored before, if applicable. To tackle this issue, we can use **names volumes**.
+
+2. volumes outlive the containers.
+
+    We are removing the mysql container and listing the volumes again:
+    ```sh
+    [be@fedora volumes]$ docker container rm mysql -f
+    mysql
+    [be@fedora volumes]$ docker volume ls
+    DRIVER    VOLUME NAME
+    local     b7aac1f90c38dceed3b61a2efdea8a4dc30a4c979eb6dd4068aa0827924ea044
+    ```
+
+### Named Volumes
+We can specify a name to the volume:
+```
+                                                                             👇
+docker container run -d --name mysql -e MYSQL_ALLOW_EMPTY_PASWORD+True -v mysql-db:/var/lib/mysql mysql
+```
+No if we check the volumes:
+```sh
+[be@fedora ~]$ docker volume ls
+DRIVER    VOLUME NAME
+local     mysql-db 👈
+```
+The advantage is, next time when we run the the container again, we can specify the same volume name and due to the point 2 (in the problems we mentioned), the volumes are preserved by Docker, therefore the data that we generated previously in the this volume, will be present.
+
+## Bind Mounting
+Here we mount a host file/directory to a container file/directory. This skips UFS and host files overwrite any container files. 
+- Cannot use in Dockerfile, must be used with `container run` command:
+
+`run -v /path/in/host:/path/in/container`
+
+#### How does docker differentiate a names volume and bind mount?
+Bind mounts start with a `/` 🤭
+
+Ex: serving an html page with nginx:
+
+Create a very simple html file named index.html and save anywhere else. I am putting it in `/tmp/docker-nginx`
+```html
+<!DOCTYPE html>
+<h1>Hei There</h1>
+```
+Now, bring up nginx container with it's `/usr/share/nginx/html` mounted to `/tmp/docker-nginx`. (Where did this /usr/*/html path come from? That's the default document root of nginx. Refer https://hub.docker.com/_/nginx).
+
+```sh
+# create the html file
+[be@fedora ~]$ mkdir /tmp/docker-nginx && echo '<!DOCTYPE html><h1>Hei There</h1>' > /tmp/docker-nginx/index.html
+# bring up the container
+[be@fedora ~]$ docker container run -d -p 80:80 -v /tmp/docker-nginx:/usr/share/nginx/html nginx:alpine
+db9c7502d0e2a33c1ee70f28f29d5c9bfd8857860a5c5a14e6f6374c19885cd3
+# test the response
+[be@fedora ~]$ curl localhost
+<!DOCTYPE html><h1>Hei There</h1>
+```
+We can see that the container is bind mounted to the host machine's volume.
