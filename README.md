@@ -273,14 +273,13 @@ Inspecting the network:
 [be@fedora]$ 
 ```
 
-# Images
+## Images
 A must read on how Docker handles images and what happens when a container is started - https://docs.docker.com/storage/storagedriver/
 
 -- dockerfile
 -- builing it
 
-# Persisting Data
-## Volumes
+## Persisting Data - Volumes
 As an example, let's see how mysql image handles it's data:
 Current volumes (as we can see is empty):
 ```sh
@@ -376,3 +375,326 @@ db9c7502d0e2a33c1ee70f28f29d5c9bfd8857860a5c5a14e6f6374c19885cd3
 <!DOCTYPE html><h1>Hei There</h1>
 ```
 We can see that the container is bind mounted to the host machine's volume.
+
+# Docker Compose
+TODO: Copy from other tutorial
+
+# Swarm
+Some of the problems that arises while using lots of containers for applications include:
+- How do we automate container lifecycle?
+- How do we easily scale out/in/up/down?
+- How do we ensure our containers are re-created if they fail?
+- How do we replace containers without downtime(blue/green deploy)?
+- How do we control/track where containers get started?
+- How do we create cross-node virtual networks?
+- How do we ensure only trusted servers run our containers?
+- How do we store secrets, keys, passwords and get them to the right container(and only that container)?
+These are the major problems that Swarm tries to solve. **Swarm Mode is a clustering solution built inside Docker that helps in orchestration of conainer lifecycle.
+
+
+There are two types of notes - Manager and Worker - in a swarm. 
+- Mangers have a database locally on them known as the Raft Database that is replicated again amongst all the nodes. It stores the configurations and gives them all the information they need to have to be the authority inside a swarm.  They  all keep a copy of that database and encrypt their traffic in order to ensure integrity and guarantee  the trust that they're able to manage this swarm securely. 
+
+![](https://docs.docker.com/engine/swarm/images/swarm-diagram.png)
+
+The managers themselves can also be workers. Of course, we can demote and promote workers and  managers into the two different roles. When you think of a manager, typically think of a worker with permissions to control the swarm.
+
+Let's take an example to understand better(eventhough not everything).
+
+We know that the `docker run` command can deploy (only) one container and it does it on on whatever machine the Docker CLI was talking to which usually is our local machine, or maybe a server we are logged into. That Docker run command didn't have concepts around how to scale out or scale up. So we needed new commands to deal with that. That's where swarm and docker service comes in.
+
+A Sarm allows us to add extra features to our container when we run it, such as replicas to tell us how many of those it wants to run. Those are known as **tasks**. A single **service** can have multiple tasks, and each one of those tasks will launch a container. 
+
+![](https://docs.docker.com/engine/swarm/images/services-diagram.png)
+
+In this example, we've created a service using docker service create to spin up an Nginx service using the Nginx image like we've done several times before. But we've told it that we'd like three replicas. So it will use the manager nodes to decide where in the swarm to place those. By default, it tries to spread them out. Each node would get its own copy of the Nginx container up to the three replicas that we told it we needed.
+
+### How docker service work
+Given below is the architecture of docker swarm mode. There is a Swarm API that has a bunch of background services - scheduler, dispatcher, allocator and orchestrator, that help make decisions around what the workers should be executing at any given moment. 
+
+![](https://docs.docker.com/engine/swarm/images/service-lifecycle.png)
+
+So the workers are constantly reporting in to the managers and asking for new work. The managers are constantly doling out new work and evaluating what you've told them to do against what they're actually doing. Then if there's any reconciliation to happen, they will make those changes, such as maybe you told it to spin up three more replicate tasks in that service. So the orchestrator will realize that and then issue orders down to the workers and so on.
+
+Check if swarm is enabled or not:
+```sh
+[be@fedora ~]$ docker info | grep -i swarm
+ Swarm: inactive
+```
+
+Activate swarm:
+```sh
+docker swarm init
+```
+```
+[be@fedora ~]$ docker swarm init
+Swarm initialized: current node (9rl10j8covggiwt5lfherdhh4) is now a manager.
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-5itvz3umfgegpsxj0g5p100q5aeyxqtrvvrjo66vz42xv0mt41-9gryafxqgjegbngqilhoi70d0 192.168.221.49:2377
+
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+```
+This will do the following:
+- Lots of PKI and security automation:
+
+    - Root Signing Certificate created for our Sarm
+    - Certificate is issued for the first Manager Node
+    - Created tokens what can be use on other nodes to join this swarm.
+- Raft database created to store root CA, configs and secrets
+
+    - Encrypted by default on disk
+    - No need for another key/value system to hold orchestration/secrets
+    - Replicates logs amongst Managers via mutual TLS in "control plane"
+
+```sh
+[be@fedora ~]$ docker node ls
+ID                            HOSTNAME   STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
+9rl10j8covggiwt5lfherdhh4 *   fedora     Ready     Active         Leader           20.10.8
+```
+There are only be one Leader among the managers.
+
+## Docker Service
+### Create a new service
+Service can have many tasks where each task will usually be a container.
+```
+[be@fedora ~]$ docker service create alpine ping 8.8.8.8
+q1ht76ko8o18a257yes6zj45j
+overall progress: 1 out of 1 tasks 
+1/1: running   
+verify: Service converged 
+```
+
+Verifying the same:
+```sh
+[be@fedora ~]$ docker service ls
+ID             NAME             MODE         REPLICAS   IMAGE           PORTS
+q1ht76ko8o18   friendly_wiles   replicated   1/1        alpine:latest   
+[be@fedora ~]$ docker service ps friendly_wiles
+ID             NAME               IMAGE           NODE      DESIRED STATE   CURRENT STATE            ERROR     PORTS
+wije77s9abjx   friendly_wiles.1   alpine:latest   fedora    Running         Running 34 seconds ago             
+
+# Container created by 'service' is visible via 'docker container' command as well.
+[be@fedora ~]$ docker container ls
+CONTAINER ID   IMAGE           COMMAND          CREATED          STATUS          PORTS     NAMES
+db39afabf109   alpine:latest   "ping 8.8.8.8"   46 seconds ago   Up 43 seconds             friendly_wiles.1.wije77s9abjx4iaqo18gfqrl1
+```
+
+### Scaling the service
+```sh
+[be@fedora ~]$ docker service update q1ht76ko8o18 --replicas 3
+q1ht76ko8o18
+overall progress: 3 out of 3 tasks 
+1/3: running   
+2/3: running   
+3/3: running   
+verify: Service converged 
+```
+```sh
+[be@fedora ~]$ docker service ls
+ID             NAME             MODE         REPLICAS   IMAGE           PORTS
+q1ht76ko8o18   friendly_wiles   replicated   3/3        alpine:latest   
+[be@fedora ~]$ docker service ps q1ht76ko8o18
+ID             NAME               IMAGE           NODE      DESIRED STATE   CURRENT STATE             
+wije77s9abjx   friendly_wiles.1   alpine:latest   fedora    Running         Running 6 minutes ago                  
+qx92don5pln0   friendly_wiles.2   alpine:latest   fedora    Running         Running about a minute ago             
+djd0jh4zqf72   friendly_wiles.3   alpine:latest   fedora    Running         Running about a minute ago             
+```
+
+Let's try abruptly killing a task:
+```sh            
+# list all the running containers
+[be@fedora ~]$ docker ps
+CONTAINER ID   IMAGE           COMMAND          CREATED       STATUS       PORTS     NAMES
+a7901ba7ffcc   alpine:latest   "ping 8.8.8.8"   4 hours ago   Up 4 hours             friendly_wiles.3.djd0jh4zqf72e4f4nyy1lh9vv
+938a369eddb3   alpine:latest   "ping 8.8.8.8"   4 hours ago   Up 4 hours             friendly_wiles.2.qx92don5pln0p8dk67op4nx0d
+db39afabf109   alpine:latest   "ping 8.8.8.8"   4 hours ago   Up 4 hours             friendly_wiles.1.wije77s9abjx4iaqo18gfqrl1
+# remove the second container in the cluster forfecully
+[be@fedora ~]$ docker rm -f friendly_wiles.2.qx92don5pln0p8dk67op4nx0d
+friendly_wiles.2.qx92don5pln0p8dk67op4nx0d
+# now when we check the service ps, we can see that a new task has started.
+# swarm will boot up a new container if any of the existing containers in the cluster failed.
+[be@fedora ~]$ docker service ps q1ht76ko8o18
+ID             NAME                   IMAGE           NODE      DESIRED STATE   CURRENT STATE                  ERROR                         PORTS
+wije77s9abjx   friendly_wiles.1       alpine:latest   fedora    Running         Running 4 hours ago                                          
+wxkgh06arjej   friendly_wiles.2       alpine:latest   fedora    Ready           Ready less than a second ago                                 
+qx92don5pln0    \_ friendly_wiles.2   alpine:latest   fedora    Shutdown        Failed 1 second ago            "task: non-zero exit (137)"   
+djd0jh4zqf72   friendly_wiles.3       alpine:latest   fedora    Running         Running 4 hours ago                                          
+[be@fedora ~]$ docker service ps q1ht76ko8o18
+ID             NAME                   IMAGE           NODE      DESIRED STATE   CURRENT STATE          ERROR                         PORTS
+wije77s9abjx   friendly_wiles.1       alpine:latest   fedora    Running         Running 4 hours ago                                  
+wxkgh06arjej   friendly_wiles.2       alpine:latest   fedora    Running         Running 1 second ago                                 
+qx92don5pln0    \_ friendly_wiles.2   alpine:latest   fedora    Shutdown        Failed 8 seconds ago   "task: non-zero exit (137)"   
+djd0jh4zqf72   friendly_wiles.3       alpine:latest   fedora    Running         Running 4 hours ago                                  
+```
+
+### Bringing down a service
+```
+docker service rm <serviceName>
+```
+```
+[be@fedora ~]$ docker service rm friendly_wiles
+```
+
+## Exercise: Creating a 3-Node Swarm Cluster
+Node1
+
+```sh
+docker swarm init [--advertise-addr <address to expose>]
+# join the swarm on second node
+docker swarm join --token <token> <ip:port>
+# on master:
+docker node ls
+docker node update --role manager node2
+docker swarm join-token manager
+docker service create --replicas 3 alpine ping 8.8.8.8
+docker service ls
+docker sercive ps serviceName
+docker node ps nodeHostName
+```
+
+> If you are getting an error `Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp 192.168.103.215:2377: connect: no route to host"` while tring to connect to a swarm, try running `firewall-cmd --add-port=2377/tcp --permanent && firewall-cmd --reload` on the master node.
+
+
+## Overlay Multi-Host Networking
+- Choose `--driver overlay` when creating network
+- This is only for container-to-container traffic inside a single swarm
+- Optional IPSec(AES) encryption on network creation which sets up IPSec tonnels between all nodes in the swarm.
+- Each service can be connected to multiple networks
+
+```sh
+docker network create --driver overlay myswarmnet
+docker service create --name psql --network myswarmnet -e POSTGRES_PASSWORD=mypass postgres:alpine
+docker service create --name web --network myswarmnet -p 80:80 nginx:alpine
+```
+```
+[u@vm01 ~]$ docker service ls
+ID             NAME      MODE         REPLICAS   IMAGE             PORTS
+nwy7viidnp7n   psql      replicated   1/1        postgres:alpine   
+tmiz4ydl3v57   web       replicated   1/1        nginx:alpine      *:80->80/tcp
+[u@vm01 ~]$ 
+```
+If we try to access the nginx service on port 80 on both the ip addresses, it will be available. How? Here comes the Routing Mesh
+
+### Routing Mesh
+- Routes ingress (incoming) packets for a Service to proper Task
+- Spans all nodes in Swarm
+- Uses IPVs from Linux Kernel
+- Load balances Swarm Services accross their Tasks
+- Two ways this works:
+
+    1. Contaner-to-container in a Overlay network(uses VIP)
+    2. External traffic incoming to publishes ports in the service (all node listen)
+
+<br/>
+- This is stateless load balancing
+- This LB is at OSI Layer 3(TCP), not layer 4(DNS)
+
+    If you've ever run multiple websites on the same port, on the same server, this isn't going to do that yet. You're still going to need another piece of the puzzle on top of that if you're actually wanting to run multiple websites on the same port, on the same swarm. 
+
+Solution to the above problems:
+- One of them is to use Nginx or HAProxy, which there are pretty good examples out there of containers that will sit in front with your routing mesh, and actually act as a stateful load balancer or a layer for load balancer, that can also do caching and lots of other things. 
+- Docker Enterprise edition comes with a built-in layer for web proxy that allows you to just throw DNS names in the web config of your swarm services and everything just works.
+
+## Stacks
+It's a new layer of abstraction to Swarm. Stacks accept Compose files as their declarative definition for service, networks and volumes. We use `docker stack deploy` rather than `docker service create`.
+
+Stacks manages all those objects for us, including overlay networks per stack.
+
+Compose Vs Swarm compose file major syntax difference:
+| Compose | Swarm | 
+| --- | --- |
+| `build` (compose ignores deploy keyword) | `deploy` (swarm ignores build keyword) |
+
+TODO: include yml
+
+```sh
+docker stack deploy -c some-stack.yml name
+docker stack ls
+docker stack services name # gives services
+docker stack ps name # gives tasks
+```
+
+## Secrets Storage
+- Secrets are first stored in Swarm(in control on Managers using the Raft DB), then assigned to Service(s)
+- Only containers in assigned Service(s) can see them
+- They look like files in container but are actually in-memory fs available in `/run/secrets/<secret_name>` or `/run/secrets/<secret_alias>`
+
+### File as secret
+```sh
+docker secret create <name> <file>
+```
+```sh
+[u@vm01 ~]$ cat secret.txt 
+luciferMorningstar
+[u@vm01 ~]$ docker secret create username secret.txt
+w7nmg31jky0cuf21wwxo4869b
+```
+
+### Key as secret
+```sh
+echo "value" | docker secret create <name> -
+```
+```sh
+[u@vm01 ~]$ echo "luciferMorningstar" | docker secret create password -
+y7srm9bbulyl9htq4ggoa04kb
+```
+
+### Using secrets
+```sh
+docker service create --name psql \
+    --secret username \
+    --secret password \
+    -e POSTGRES_PASSWORD_FILE=/run/secrets/password \
+    -e POSTGRES_USER_FILE=/run/secrets/username postgres:alpine
+```
+
+### Using Secrets with Swarm Stacks
+```yml
+version: "3.1"
+services:
+    psql:
+        image: postgres:alpine
+        secrets:
+            - username
+            - password
+        environment:
+            - POSTGRES_PASSWORD_FILE=/run/secrets/password
+            - POSTGRES_USER_FILE=/run/secrets/username
+    
+secrets:
+    username:
+        file: ./username.txt
+    password:
+        file: ./password.txt
+```
+
+```sh
+[u@vm01 docker]$ docker stack deploy -c docker-compose.yml mydb
+Creating service mydb_psql
+[u@vm01 docker]$ docker service ls
+ID             NAME        MODE         REPLICAS   IMAGE             PORTS
+mqg7hpde2lya   mydb_psql   replicated   0/1        postgres:alpine   
+```
+
+Note: Secrets will also work with normal compose (not in swarm). Docker does this by bind mounting files to /run/secrets/ directory (which is insecure and a simple workaround). Also, this will only work with file based secrets.
+
+
+```sh
+[be@fedora Desktop]$ cat username.txt password.txt 
+username
+P@ssword@134
+# make sure we are not in a swarm
+[be@fedora Desktop]$ docker service ls
+Error response from daemon: This node is not a swarm manager. Use "docker swarm init" or "docker swarm join" to connect this node to swarm and try again.
+# use compose / with secrets
+[be@fedora Desktop]$ docker-compose up -d
+Creating desktop_psql_1 ... done
+# --
+[be@fedora Desktop]$ docker ps
+CONTAINER ID   IMAGE             COMMAND                  CREATED         STATUS         PORTS      NAMES
+2204b5915566   postgres:alpine   "docker-entrypoint.s…"   6 minutes ago   Up 6 minutes   5432/tcp   desktop_psql_1
+[be@fedora Desktop]$ docker exec desktop_psql_1 cat /run/secrets/username
+username
+```
