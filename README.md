@@ -5,14 +5,6 @@ NoteBeforeStart: Through the entire note, I am using Fedora. Therefore all comma
 
 # 1. Installation
 #### Install Docker
-# 1. Installation
-Install Docker on Ubuntu https://docs.docker.com/engine/install/ubuntu/. 
-Debian: https://docs.docker.com/install/linux/docker-ce/debian/
-
-### Installation Steps
-Create Dockerhub account https://hub.docker.com/signup
-
-#### Install Docker
 https://docs.docker.com/engine/install/
 
 #### Login to the Dockerhub
