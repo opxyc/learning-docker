@@ -1485,6 +1485,9 @@ latest: digest: sha256:f54a58bc1aac5ea1a25d796ae155dc228b3f0e11d046ae276b39c4bf2
 total 4
 drwxr-xr-x. 3 root root 4096 Oct  9 12:00 docker
 ```
+---
 
+## Security 'n Docker
+Reference https://github.com/BretFisher/ama/issues/17
 ---
 END
